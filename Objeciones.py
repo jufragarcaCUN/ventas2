@@ -455,7 +455,7 @@ for cat, es_obj in MAPEO_OBJECION.items():
             "Tipo": "✅ Objeción" if es_obj else "🔄 No objeción",
             "Definición": DEFINICIONES.get(cat, "Sin definición"),
         }
-    )
+    )  ####impotate estos ocmentarios
 df_tabla = pd.DataFrame(datos_tabla)
 st.dataframe(
     df_tabla,
