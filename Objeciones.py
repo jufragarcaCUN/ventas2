@@ -45,7 +45,7 @@ st.markdown("---")
 
 # ==================== RUTA DEL EXCEL ====================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RUTA_EXCEL = os.path.join(BASE_DIR, "carreras_homologadas (6).xlsx")
+RUTA_EXCEL = os.path.join(BASE_DIR, "arreras_homologada")
 
 # ==================== MAPEO Y DEFINICIONES ====================
 MAPEO_OBJECION = {
