@@ -45,7 +45,9 @@ st.markdown("---")
 
 # ==================== RUTA DEL EXCEL ====================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RUTA_EXCEL = os.path.join(BASE_DIR, "carreras_homologada")
+RUTA_EXCEL = os.path.join(
+    BASE_DIR, "carreras_homologada.xlsx"
+)  # Ajusta la extensión si es necesario
 
 # ==================== MAPEO Y DEFINICIONES ====================
 MAPEO_OBJECION = {
@@ -275,63 +277,78 @@ else:
 
 st.markdown("---")
 
-# ==================== GRÁFICA DE PROMEDIOS P4-P7 (POR COLUMNA) ====================
-st.subheader("📊 Promedios de Calificaciones (P4 - P7)")
+# ==================== GRÁFICA DE PROMEDIOS P1-P7 ====================
+st.subheader("📊 Promedios de Calificaciones (P1 - P7)")
 
-columnas_p4p7 = [
+columnas_p1p7 = [
+    "P1_Promesa (Llamadas)",
+    "P2_Beneficio (Llamadas)",
+    "P3_Entregables (Llamadas)",
     "P4_Garantia (Llamadas)",
     "P5_Regalos (Llamadas)",
     "P6_Precio (Llamadas)",
     "P7_Cierre (Llamadas)",
 ]
 
-# Verificar qué columnas existen realmente en el DataFrame filtrado
-existentes = [col for col in columnas_p4p7 if col in df_filtrado.columns]
+existentes = [col for col in columnas_p1p7 if col in df_filtrado.columns]
 
 if not existentes:
-    st.info("ℹ️ Ninguna de las columnas P4-P7 está disponible en los datos.")
+    st.info("ℹ️ Ninguna de las columnas P1-P7 está disponible en los datos.")
 else:
-    # Calcular el promedio de cada columna (ignorando NaN)
     promedios = []
     for col in existentes:
-        # Convertir a numérico (si es posible)
         serie = pd.to_numeric(df_filtrado[col], errors="coerce")
         promedio = serie.mean(skipna=True)
         if pd.notna(promedio):
             promedios.append({"Columna": col, "Promedio": promedio})
 
-    if not promedios:
-        st.warning(
-            "⚠️ No se pudo calcular el promedio porque los valores no son numéricos en ninguna columna."
-        )
-    else:
+    if promedios:
         df_promedios = pd.DataFrame(promedios)
-
-        # Crear gráfica de barras con los promedios
-        fig_p4p7 = px.bar(
+        fig_p1p7 = px.bar(
             df_promedios,
             x="Columna",
             y="Promedio",
-            title="Promedio de calificaciones por columna (P4 - P7)",
+            title="Promedio de calificaciones por columna (P1 - P7)",
             color_discrete_sequence=["#1E5D2F"],
             text="Promedio",
             text_auto=".2f",
         )
-        fig_p4p7.update_traces(textposition="outside")
-        fig_p4p7.update_layout(
+        fig_p1p7.update_traces(textposition="outside")
+        fig_p1p7.update_layout(
             height=400,
             margin=dict(l=0, r=0, t=40, b=0),
             xaxis_title="",
             yaxis_title="Promedio",
         )
-        st.plotly_chart(fig_p4p7, use_container_width=True)
-
-        # Mostrar los promedios en una tabla pequeña para mayor detalle
+        st.plotly_chart(fig_p1p7, use_container_width=True)
         st.dataframe(
             df_promedios.style.format({"Promedio": "{:.2f}"}),
             use_container_width=True,
             hide_index=True,
         )
+    else:
+        st.warning("⚠️ No se pudo calcular ningún promedio (datos no numéricos).")
+
+# ==================== HISTOGRAMA M2_CONFIANZA_PUNTAJE ====================
+st.subheader("📊 Distribución del Puntaje de Confianza (M2)")
+col_m2 = "M2_Confianza_Puntaje (Llamadas)"
+
+if col_m2 in df_filtrado.columns:
+    serie_m2 = pd.to_numeric(df_filtrado[col_m2], errors="coerce").dropna()
+    if not serie_m2.empty:
+        fig_m2 = px.histogram(
+            serie_m2,
+            nbins=20,
+            color_discrete_sequence=["#1E5D2F"],
+            title="Distribución de M2_Confianza_Puntaje",
+            labels={"value": "Puntaje", "count": "Frecuencia"},
+        )
+        fig_m2.update_layout(height=400, margin=dict(l=0, r=0, t=40, b=0))
+        st.plotly_chart(fig_m2, use_container_width=True)
+    else:
+        st.info("ℹ️ No hay datos numéricos para M2_Confianza_Puntaje.")
+else:
+    st.info("ℹ️ La columna M2_Confianza_Puntaje (Llamadas) no está disponible.")
 
 st.markdown("---")
 
