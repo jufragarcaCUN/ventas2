@@ -95,8 +95,8 @@ def cargar_datos():
         st.error(f"❌ Error al leer el Excel: {e}")
         return None, None, None, None, None, None
 
-    # --- NOMBRES REALES DE COLUMNAS ---
-    col_prog = "programa_homologado_lista"
+    # --- NOMBRES REALES DE COLUMNAS (CORREGIDO) ---
+    col_prog = "PROGRAMA (CRM)"  # 🔥 AQUÍ ESTABA EL ERROR
     col_obj = "Objecion_Detectada (Llamadas)"
     col_mod = "MODALIDAD (CRM)"
     col_ciudad = "ciudad (CRM)"
