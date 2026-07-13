@@ -44,10 +44,7 @@ st.title("🎯 Análisis de Objeciones COE - CUN")
 st.markdown("---")
 
 # ==================== RUTA DEL EXCEL ====================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RUTA_EXCEL = os.path.join(
-    BASE_DIR, "carreras_homologada.xlsx"
-)  # Ajusta la extensión si es necesario
+RUTA_EXCEL = "carreras_homologada.xlsx"
 
 # ==================== MAPEO Y DEFINICIONES ====================
 MAPEO_OBJECION = {
@@ -85,45 +82,43 @@ DEFINICIONES = {
 @st.cache_data
 def cargar_datos():
     if not os.path.exists(RUTA_EXCEL):
-        st.error(f"❌ No se encuentra el archivo en: {RUTA_EXCEL}")
+        st.error(f"❌ No se encuentra el archivo: {RUTA_EXCEL}")
+        st.info(f"Asegúrate de que el archivo esté en: {os.getcwd()}")
         return None, None, None, None, None, None
 
     try:
-        df = pd.read_excel(RUTA_EXCEL)
-        st.success(f"✅ Archivo cargado correctamente. Filas: {len(df)}")
+        # 🔥 FORZAR LA HOJA "hoja1" (nombre exacto según verificación)
+        df = pd.read_excel(RUTA_EXCEL, sheet_name="hoja1")
+        st.success(f"✅ Hoja 'hoja1' cargada. Filas: {len(df)}")
     except Exception as e:
-        st.error(f"❌ Error al leer el Excel: {e}")
+        st.error(f"❌ Error al leer la hoja 'hoja1': {e}")
         return None, None, None, None, None, None
 
-    # --- NOMBRES REALES DE COLUMNAS (CORREGIDO) ---
-    col_prog = "PROGRAMA (CRM)"  # 🔥 AQUÍ ESTABA EL ERROR
+    # --- NOMBRES DE COLUMNAS (tal cual aparecen en la lista) ---
+    col_prog = "PROGRAMA (CRM)"
     col_obj = "Objecion_Detectada (Llamadas)"
     col_mod = "MODALIDAD (CRM)"
     col_ciudad = "ciudad (CRM)"
     col_fecha = "Fecha (Llamadas)"
 
-    # --- LIMPIEZA ROBUSTA ---
+    # --- VERIFICAR QUE EXISTAN ---
+    columnas_requeridas = [col_prog, col_obj, col_mod, col_ciudad, col_fecha]
+    faltan = [c for c in columnas_requeridas if c not in df.columns]
+    if faltan:
+        st.error(f"❌ Faltan columnas: {faltan}")
+        st.write("Columnas disponibles:", df.columns.tolist())
+        return None, None, None, None, None, None
+
+    # --- LIMPIEZA ---
     df[col_prog] = df[col_prog].fillna("Sin Especificar").astype(str).str.strip()
     df[col_obj] = df[col_obj].fillna("Sin Objeción").astype(str).str.strip()
+    df[col_mod] = df[col_mod].fillna("Sin Modalidad").astype(str).str.strip()
+    df[col_ciudad] = df[col_ciudad].fillna("Sin Ciudad").astype(str).str.strip()
 
     if col_fecha in df.columns:
         df[col_fecha] = pd.to_datetime(df[col_fecha], errors="coerce")
 
-    # Limpiar basura
-    basura = [
-        "otro / por verificar",
-        "otro",
-        "no registrado",
-        "por verificar",
-        "",
-        "nan",
-        "none",
-    ]
-    df = df[
-        (~df[col_prog].str.lower().isin(basura))
-        & (~df[col_obj].str.lower().isin(basura))
-    ]
-
+    # --- MAPEAR OBJECIONES ---
     df["es_objecion"] = df[col_obj].map(MAPEO_OBJECION)
     df["es_objecion"] = df["es_objecion"].fillna(True).astype(bool)
 
@@ -139,7 +134,7 @@ df, col_prog, col_obj, col_mod, col_ciudad, col_fecha = cargar_datos()
 if df is None or df.empty:
     st.stop()
 
-# ==================== FILTROS ====================
+# ==================== FILTROS (SIDEBAR) ====================
 st.sidebar.header("🔍 Criterios de Filtrado")
 
 programas = ["Todos"] + sorted(df[col_prog].unique())
@@ -230,7 +225,8 @@ with st.expander("📋 Ver estructura de la consulta SQL (documentación)"):
         unsafe_allow_html=True,
     )
 
-# ==================== GRÁFICAS DE OBJECIONES ====================
+# ==================== GRÁFICAS ====================
+# 1. Objeciones
 st.subheader("📈 Distribución de Objeciones")
 if total_obj > 0:
     df_obj = (
@@ -253,6 +249,7 @@ if total_obj > 0:
 else:
     st.info("No hay objeciones con estos filtros.")
 
+# 2. No objeciones
 st.subheader("🔄 Distribución de No Objeciones")
 if total_no_obj > 0:
     df_no = (
@@ -277,7 +274,7 @@ else:
 
 st.markdown("---")
 
-# ==================== GRÁFICA DE PROMEDIOS P1-P7 ====================
+# 3. Promedios P1-P7
 st.subheader("📊 Promedios de Calificaciones (P1 - P7)")
 
 columnas_p1p7 = [
@@ -329,7 +326,7 @@ else:
     else:
         st.warning("⚠️ No se pudo calcular ningún promedio (datos no numéricos).")
 
-# ==================== HISTOGRAMA M2_CONFIANZA_PUNTAJE ====================
+# 4. M2 Confianza
 st.subheader("📊 Distribución del Puntaje de Confianza (M2)")
 col_m2 = "M2_Confianza_Puntaje (Llamadas)"
 
