@@ -51,10 +51,8 @@ st.markdown(
 
 st.title("🎯 Análisis de Objeciones COE - CUN")
 
-# ==================== RUTA DEL EXCEL (ACTUALIZADA) ====================
+# ==================== RUTA DEL EXCEL ====================
 RUTA_EXCEL = r"C:\Users\juan_garnicac\Documents\ProyectosVisual\Ventas\presentaciones\salida_con_pago.xlsx"
-st.markdown(f"**📂 Archivo cargado:** `{RUTA_EXCEL}`")
-st.markdown("---")
 
 # ==================== MAPEO Y DEFINICIONES ====================
 MAPEO_OBJECION = {
@@ -88,20 +86,10 @@ DEFINICIONES = {
 }
 
 
-# ==================== CARGA DE DATOS ====================
+# ==================== CARGA DE DATOS (SIN VERIFICACIONES) ====================
 @st.cache_data
 def cargar_datos():
-    if not os.path.exists(RUTA_EXCEL):
-        st.error(f"❌ No se encuentra el archivo: {RUTA_EXCEL}")
-        st.info(f"Asegúrate de que el archivo exista en la ruta indicada.")
-        return None, None, None, None, None, None, None
-
-    try:
-        df = pd.read_excel(RUTA_EXCEL)
-        st.success(f"✅ Archivo cargado. Filas: {len(df)}")
-    except Exception as e:
-        st.error(f"❌ Error al leer el Excel: {e}")
-        return None, None, None, None, None, None, None
+    df = pd.read_excel(RUTA_EXCEL)
 
     col_prog = "NOM_PROGRAMA"
     col_obj = "Objecion_Detectada"
@@ -110,22 +98,7 @@ def cargar_datos():
     col_fecha = "Fecha"
     col_estado = "ESTADO_PAGO"
 
-    # Verificar columnas requeridas
-    columnas_requeridas = [
-        col_prog,
-        col_obj,
-        col_mod,
-        col_ciudad,
-        col_fecha,
-        col_estado,
-    ]
-    faltan = [c for c in columnas_requeridas if c not in df.columns]
-    if faltan:
-        st.error(f"❌ Faltan columnas: {faltan}")
-        st.write("Columnas disponibles:", df.columns.tolist())
-        return None, None, None, None, None, None, None
-
-    # Limpieza básica
+    # Limpieza básica (se asume que las columnas existen)
     df[col_prog] = df[col_prog].fillna("Sin Especificar").astype(str).str.strip()
     df[col_obj] = df[col_obj].fillna("Sin Objeción").astype(str).str.strip()
     df[col_mod] = df[col_mod].fillna("Sin Modalidad").astype(str).str.strip()
@@ -135,27 +108,13 @@ def cargar_datos():
     if col_fecha in df.columns:
         df[col_fecha] = pd.to_datetime(df[col_fecha], errors="coerce")
 
-    # Mapear objeciones
     df["es_objecion"] = df[col_obj].map(MAPEO_OBJECION)
     df["es_objecion"] = df["es_objecion"].fillna(True).astype(bool)
-
-    # Mostrar estadísticas de depuración
-    st.write("🔍 **Depuración:**")
-    st.write(f"- Total de filas en el Excel: {len(df):,}")
-    st.write(f"- Columnas: {len(df.columns)}")
-    st.write(f"- Valores únicos en ESTADO_PAGO: {sorted(df[col_estado].unique())}")
-
-    if df.empty:
-        st.warning("⚠️ Después de limpiar, no quedaron registros válidos.")
-    else:
-        st.info(f"✅ Datos limpios: {len(df)} filas listas para analizar.")
 
     return df, col_prog, col_obj, col_mod, col_ciudad, col_fecha, col_estado
 
 
 df, col_prog, col_obj, col_mod, col_ciudad, col_fecha, col_estado = cargar_datos()
-if df is None or df.empty:
-    st.stop()
 
 # ==================== FILTROS (SIDEBAR) ====================
 st.sidebar.header("🔍 Criterios de Filtrado")
@@ -174,7 +133,6 @@ ciudades = ["Todos"] + sorted(df[col_ciudad].dropna().astype(str).unique())
 ciu_sel = st.sidebar.multiselect("Ciudad:", options=ciudades, default=["Todos"])
 ciu_filtro = ciudades[1:] if "Todos" in ciu_sel else ciu_sel
 
-# Se mantiene todo el dataframe (no se filtra por estado de pago)
 df_filtrado = df[
     (df[col_prog].isin(prog_filtro))
     & (df[col_mod].isin(mod_filtro))
@@ -613,14 +571,12 @@ with st.expander("🏙️ Análisis por Ciudad y Estado de Pago"):
             index=col_ciudad, columns=col_estado, values=col_calif
         ).reset_index()
 
-        # Renombrar dinámicamente
         nuevos_nombres = {col_ciudad: col_ciudad}
         for col in df_calif_pivot.columns:
             if col != col_ciudad:
                 nuevos_nombres[col] = f"Prom_{col}"
         df_calif_pivot.rename(columns=nuevos_nombres, inplace=True)
 
-        # Calcular diferencia solo si existen PAGO y NO_PAGO
         if (
             "Prom_PAGO" in df_calif_pivot.columns
             and "Prom_NO_PAGO" in df_calif_pivot.columns

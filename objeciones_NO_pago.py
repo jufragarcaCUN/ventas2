@@ -52,20 +52,11 @@ st.markdown(
 
 st.title("🎯 Análisis de Objeciones COE - CUN")
 
-# ==================== RUTA DEL EXCEL (CORREGIDA) ====================
+# ==================== RUTA DEL EXCEL ====================
 script_dir = pathlib.Path(__file__).parent.absolute()
-RUTA_EXCEL = script_dir / "salida_con_NO_pago.xlsx"  # ← NOMBRE EXACTO
-
-# Mostrar información de depuración
-st.write(f"📁 Directorio de trabajo actual: `{os.getcwd()}`")
-st.write(f"📂 Ruta del script: `{script_dir}`")
-st.write(f"📄 Buscando archivo en: `{RUTA_EXCEL}`")
-
-# ==== LISTAR TODOS LOS ARCHIVOS DE LA CARPETA (para depurar) ====
-archivos_en_carpeta = [f.name for f in script_dir.iterdir() if f.is_file()]
-st.write("📋 Archivos en la carpeta:")
-st.write(archivos_en_carpeta)
-st.markdown("---")
+RUTA_EXCEL = (
+    script_dir / "salida_con_NO_pago.xlsx"
+)  # ← Cambia el nombre si es necesario
 
 # ==================== MAPEO Y DEFINICIONES ====================
 MAPEO_OBJECION = {
@@ -99,21 +90,10 @@ DEFINICIONES = {
 }
 
 
-# ==================== CARGA DE DATOS ====================
+# ==================== CARGA DE DATOS (SIN VERIFICACIONES) ====================
 @st.cache_data
 def cargar_datos():
-    if not RUTA_EXCEL.exists():
-        st.error(f"❌ No se encuentra el archivo: `{RUTA_EXCEL}`")
-        st.info("Asegúrate de que el archivo esté en la misma carpeta que este script.")
-        st.info("Nombre esperado: `salida_con_NO_pago.xlsx` (sin mayúsculas extrañas).")
-        return None, None, None, None, None, None, None
-
-    try:
-        df = pd.read_excel(RUTA_EXCEL)
-        st.success(f"✅ Archivo cargado correctamente. Filas: {len(df):,}")
-    except Exception as e:
-        st.error(f"❌ Error al leer el Excel: {e}")
-        return None, None, None, None, None, None, None
+    df = pd.read_excel(RUTA_EXCEL)
 
     col_prog = "NOM_PROGRAMA"
     col_obj = "Objecion_Detectada"
@@ -121,20 +101,6 @@ def cargar_datos():
     col_ciudad = "Ciudad"
     col_fecha = "Fecha"
     col_estado = "ESTADO_PAGO"
-
-    columnas_requeridas = [
-        col_prog,
-        col_obj,
-        col_mod,
-        col_ciudad,
-        col_fecha,
-        col_estado,
-    ]
-    faltan = [c for c in columnas_requeridas if c not in df.columns]
-    if faltan:
-        st.error(f"❌ Faltan columnas requeridas: {faltan}")
-        st.write("Columnas disponibles en el archivo:", df.columns.tolist())
-        return None, None, None, None, None, None, None
 
     df[col_prog] = df[col_prog].fillna("Sin Especificar").astype(str).str.strip()
     df[col_obj] = df[col_obj].fillna("Sin Objeción").astype(str).str.strip()
@@ -148,44 +114,10 @@ def cargar_datos():
     df["es_objecion"] = df[col_obj].map(MAPEO_OBJECION)
     df["es_objecion"] = df["es_objecion"].fillna(True).astype(bool)
 
-    st.write("🔍 **Depuración:**")
-    st.write(f"- Total de filas en el Excel: {len(df):,}")
-    st.write(f"- Columnas: {len(df.columns)}")
-    st.write(f"- Valores únicos en ESTADO_PAGO: {sorted(df[col_estado].unique())}")
-
-    if df.empty:
-        st.warning("⚠️ Después de limpiar, no quedaron registros válidos.")
-    else:
-        st.info(f"✅ Datos limpios: {len(df):,} filas listas para analizar.")
-
     return df, col_prog, col_obj, col_mod, col_ciudad, col_fecha, col_estado
 
 
-# Intentar cargar
 df, col_prog, col_obj, col_mod, col_ciudad, col_fecha, col_estado = cargar_datos()
-
-# Si falla, ofrecer carga manual
-if df is None or df.empty:
-    st.warning("⚠️ No se pudo cargar el archivo automáticamente.")
-    st.markdown("---")
-    st.subheader("📤 Carga manual del archivo Excel")
-    archivo_subido = st.file_uploader(
-        "Selecciona el archivo Excel con los datos", type=["xlsx"]
-    )
-    if archivo_subido is not None:
-        try:
-            df = pd.read_excel(archivo_subido)
-            st.success("✅ Archivo subido correctamente.")
-            st.info(
-                "🔄 Por favor, reinicia la aplicación para procesar los datos correctamente."
-            )
-            st.stop()
-        except Exception as e:
-            st.error(f"❌ Error al leer el archivo subido: {e}")
-            st.stop()
-    else:
-        st.info("Esperando archivo...")
-        st.stop()
 
 # ==================== FILTROS (SIDEBAR) ====================
 st.sidebar.header("🔍 Criterios de Filtrado")
@@ -203,9 +135,6 @@ mod_filtro = modalidades[1:] if "Todos" in mod_sel else mod_sel
 ciudades = ["Todos"] + sorted(df[col_ciudad].dropna().astype(str).unique())
 ciu_sel = st.sidebar.multiselect("Ciudad:", options=ciudades, default=["Todos"])
 ciu_filtro = ciudades[1:] if "Todos" in ciu_sel else ciu_sel
-
-estados_disponibles = sorted(df[col_estado].dropna().astype(str).unique())
-st.sidebar.info(f"ℹ️ Estado de pago disponible: {', '.join(estados_disponibles)}")
 
 df_filtrado = df[
     (df[col_prog].isin(prog_filtro))
