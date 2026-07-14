@@ -1,5 +1,6 @@
 import os
 import warnings
+import pathlib
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -28,6 +29,15 @@ st.markdown(
         background-color: #e9f5e9; padding: 15px 20px; border-radius: 10px;
         border-left: 5px solid #1E5D2F; margin: 15px 0;
     }
+    .explicacion {
+        background-color: #f0f4f8;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin: 10px 0 15px 0;
+        border-left: 4px solid #1E5D2F;
+        font-size: 0.95rem;
+        color: #2c3e50;
+    }
     table {
         width: 100%; border-collapse: collapse; background-color: white;
         border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
@@ -35,15 +45,6 @@ st.markdown(
     th { background-color: #1E5D2F; color: white; padding: 12px 15px; text-align: left; }
     td { padding: 10px 15px; border-bottom: 1px solid #e9ecef; }
     tr:hover { background-color: #f1f8f1; }
-    .explicacion {
-        background-color: #f0f4f8;
-        padding: 12px 16px;
-        border-radius: 8px;
-        margin: 10px 0 20px 0;
-        border-left: 4px solid #1E5D2F;
-        font-size: 0.95rem;
-        color: #2c3e50;
-    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -51,9 +52,19 @@ st.markdown(
 
 st.title("🎯 Análisis de Objeciones COE - CUN")
 
-# ==================== RUTA DEL EXCEL ====================
-RUTA_EXCEL = "ventas_programas_top_bottom.xlsx"
-st.markdown(f"**📂 Archivo cargado:** `{RUTA_EXCEL}`")
+# ==================== RUTA DEL EXCEL (CORREGIDA) ====================
+script_dir = pathlib.Path(__file__).parent.absolute()
+RUTA_EXCEL = script_dir / "salida_con_NO_pago.xlsx"  # ← NOMBRE EXACTO
+
+# Mostrar información de depuración
+st.write(f"📁 Directorio de trabajo actual: `{os.getcwd()}`")
+st.write(f"📂 Ruta del script: `{script_dir}`")
+st.write(f"📄 Buscando archivo en: `{RUTA_EXCEL}`")
+
+# ==== LISTAR TODOS LOS ARCHIVOS DE LA CARPETA (para depurar) ====
+archivos_en_carpeta = [f.name for f in script_dir.iterdir() if f.is_file()]
+st.write("📋 Archivos en la carpeta:")
+st.write(archivos_en_carpeta)
 st.markdown("---")
 
 # ==================== MAPEO Y DEFINICIONES ====================
@@ -91,14 +102,15 @@ DEFINICIONES = {
 # ==================== CARGA DE DATOS ====================
 @st.cache_data
 def cargar_datos():
-    if not os.path.exists(RUTA_EXCEL):
-        st.error(f"❌ No se encuentra el archivo: {RUTA_EXCEL}")
-        st.info(f"Asegúrate de que el archivo esté en: {os.getcwd()}")
+    if not RUTA_EXCEL.exists():
+        st.error(f"❌ No se encuentra el archivo: `{RUTA_EXCEL}`")
+        st.info("Asegúrate de que el archivo esté en la misma carpeta que este script.")
+        st.info("Nombre esperado: `salida_con_NO_pago.xlsx` (sin mayúsculas extrañas).")
         return None, None, None, None, None, None, None
 
     try:
         df = pd.read_excel(RUTA_EXCEL)
-        st.success(f"✅ Archivo cargado. Filas: {len(df)}")
+        st.success(f"✅ Archivo cargado correctamente. Filas: {len(df):,}")
     except Exception as e:
         st.error(f"❌ Error al leer el Excel: {e}")
         return None, None, None, None, None, None, None
@@ -120,8 +132,8 @@ def cargar_datos():
     ]
     faltan = [c for c in columnas_requeridas if c not in df.columns]
     if faltan:
-        st.error(f"❌ Faltan columnas: {faltan}")
-        st.write("Columnas disponibles:", df.columns.tolist())
+        st.error(f"❌ Faltan columnas requeridas: {faltan}")
+        st.write("Columnas disponibles en el archivo:", df.columns.tolist())
         return None, None, None, None, None, None, None
 
     df[col_prog] = df[col_prog].fillna("Sin Especificar").astype(str).str.strip()
@@ -136,17 +148,44 @@ def cargar_datos():
     df["es_objecion"] = df[col_obj].map(MAPEO_OBJECION)
     df["es_objecion"] = df["es_objecion"].fillna(True).astype(bool)
 
+    st.write("🔍 **Depuración:**")
+    st.write(f"- Total de filas en el Excel: {len(df):,}")
+    st.write(f"- Columnas: {len(df.columns)}")
+    st.write(f"- Valores únicos en ESTADO_PAGO: {sorted(df[col_estado].unique())}")
+
     if df.empty:
         st.warning("⚠️ Después de limpiar, no quedaron registros válidos.")
     else:
-        st.info(f"✅ Datos limpios: {len(df)} filas listas para analizar.")
+        st.info(f"✅ Datos limpios: {len(df):,} filas listas para analizar.")
 
     return df, col_prog, col_obj, col_mod, col_ciudad, col_fecha, col_estado
 
 
+# Intentar cargar
 df, col_prog, col_obj, col_mod, col_ciudad, col_fecha, col_estado = cargar_datos()
+
+# Si falla, ofrecer carga manual
 if df is None or df.empty:
-    st.stop()
+    st.warning("⚠️ No se pudo cargar el archivo automáticamente.")
+    st.markdown("---")
+    st.subheader("📤 Carga manual del archivo Excel")
+    archivo_subido = st.file_uploader(
+        "Selecciona el archivo Excel con los datos", type=["xlsx"]
+    )
+    if archivo_subido is not None:
+        try:
+            df = pd.read_excel(archivo_subido)
+            st.success("✅ Archivo subido correctamente.")
+            st.info(
+                "🔄 Por favor, reinicia la aplicación para procesar los datos correctamente."
+            )
+            st.stop()
+        except Exception as e:
+            st.error(f"❌ Error al leer el archivo subido: {e}")
+            st.stop()
+    else:
+        st.info("Esperando archivo...")
+        st.stop()
 
 # ==================== FILTROS (SIDEBAR) ====================
 st.sidebar.header("🔍 Criterios de Filtrado")
@@ -165,15 +204,13 @@ ciudades = ["Todos"] + sorted(df[col_ciudad].dropna().astype(str).unique())
 ciu_sel = st.sidebar.multiselect("Ciudad:", options=ciudades, default=["Todos"])
 ciu_filtro = ciudades[1:] if "Todos" in ciu_sel else ciu_sel
 
-estados = ["Todos"] + sorted(df[col_estado].dropna().astype(str).unique())
-est_sel = st.sidebar.multiselect("ESTADO_PAGO:", options=estados, default=["Todos"])
-est_filtro = estados[1:] if "Todos" in est_sel else est_sel
+estados_disponibles = sorted(df[col_estado].dropna().astype(str).unique())
+st.sidebar.info(f"ℹ️ Estado de pago disponible: {', '.join(estados_disponibles)}")
 
 df_filtrado = df[
     (df[col_prog].isin(prog_filtro))
     & (df[col_mod].isin(mod_filtro))
     & (df[col_ciudad].isin(ciu_filtro))
-    & (df[col_estado].isin(est_filtro))
 ]
 
 if df_filtrado.empty:
@@ -244,17 +281,16 @@ with st.expander("📋 Ver estructura de la consulta SQL (documentación)"):
         unsafe_allow_html=True,
     )
 
-# ==================== GRÁFICAS CON EXPLICACIONES ====================
-
-# --- 1. Distribución de Objeciones ---
+# ==================== GRÁFICA 1: OBJECIONES ====================
 st.subheader("📈 Distribución de Objeciones")
 st.markdown(
     """
-    <div class="explicacion">
-    <b>📌 ¿Qué pregunta responde?</b> ¿Cuáles son las principales objeciones que enfrentan los asesores durante las llamadas?<br>
-    <b>🔍 Interpretación:</b> Este gráfico muestra la frecuencia de cada tipo de objeción. Las barras más largas indican las objeciones más recurrentes. Identificar la objeción dominante permite enfocar estrategias de capacitación y mejorar los guiones de venta para abordar estas barreras de manera más efectiva.
-    </div>
-    """,
+<div class="explicacion">
+<b>❓ ¿Qué pregunta resuelve esta gráfica?</b><br>
+<i>¿Cuáles son las principales objeciones que los prospectos expresan durante la llamada y con qué frecuencia ocurren?</i><br>
+<b>🔍 Interpretación:</b> Esta gráfica muestra el volumen de cada tipo de objeción detectada. Identificar la objeción dominante (por ejemplo, "Economica" o "No_interesado") permite focalizar las estrategias de abordaje y capacitación de los asesores para superar esas barreras.
+</div>
+""",
     unsafe_allow_html=True,
 )
 if total_obj > 0:
@@ -278,15 +314,16 @@ if total_obj > 0:
 else:
     st.info("No hay objeciones con estos filtros.")
 
-# --- 2. Distribución de No Objeciones ---
+# ==================== GRÁFICA 2: NO OBJECIONES ====================
 st.subheader("🔄 Distribución de No Objeciones")
 st.markdown(
     """
-    <div class="explicacion">
-    <b>📌 ¿Qué pregunta responde?</b> Cuando no hay una objeción clara, ¿qué tipo de situaciones se presentan?<br>
-    <b>🔍 Interpretación:</b> Este gráfico muestra la frecuencia de las categorías clasificadas como "no objeción" (ej. "Sin_Tiempo_Atender", "Buzon_De_Voz", etc.). Sirve para entender si las llamadas fallidas se deben más a problemas de contacto que a objeciones reales, lo que puede orientar estrategias de seguimiento y calificación de prospectos.
-    </div>
-    """,
+<div class="explicacion">
+<b>❓ ¿Qué pregunta resuelve esta gráfica?</b><br>
+<i>¿Qué categorías se registran cuando NO hay una objeción clara y cuál es su frecuencia?</i><br>
+<b>🔍 Interpretación:</b> Esta gráfica muestra las situaciones donde no se detectó una objeción tradicional. Categorías como "Tramite_Reintegro" o "Sin_Tiempo_Atender" indican que el prospecto es un estudiante actual o que simplemente no pudo atender, lo que requiere un enfoque diferente al de una objeción clásica.
+</div>
+""",
     unsafe_allow_html=True,
 )
 if total_no_obj > 0:
@@ -312,17 +349,19 @@ else:
 
 st.markdown("---")
 
-# --- 3. Promedios P1-P7 ---
+# ==================== GRÁFICA 3: PROMEDIOS P1-P7 ====================
 st.subheader("📊 Promedios de Calificaciones (P1 - P7)")
 st.markdown(
     """
-    <div class="explicacion">
-    <b>📌 ¿Qué pregunta responde?</b> ¿En qué etapas del proceso de venta (promesa, beneficio, entregables, garantía, regalos, precio, cierre) el equipo tiene mejor o peor desempeño?<br>
-    <b>🔍 Interpretación:</b> Cada barra representa el puntaje promedio obtenido en esa etapa. Etapas con promedios bajos indican oportunidades de mejora en la comunicación o en el manejo de esa parte del discurso. Esto permite focalizar capacitaciones en los puntos débiles para elevar la calificación global.
-    </div>
-    """,
+<div class="explicacion">
+<b>❓ ¿Qué pregunta resuelve esta gráfica?</b><br>
+<i>¿En qué etapas de la llamada (promesa, beneficio, entregables, garantía, regalos, precio, cierre) los asesores obtienen mejores o peores puntajes?</i><br>
+<b>🔍 Interpretación:</b> Estos promedios permiten identificar fortalezas y debilidades en el proceso de ventas. Por ejemplo, si "Precio" tiene un puntaje bajo, puede indicar que los asesores necesitan mejorar su manejo de objeciones económicas.
+</div>
+""",
     unsafe_allow_html=True,
 )
+
 columnas_p1p7 = [
     "P1_Promesa",
     "P2_Beneficio",
@@ -369,15 +408,16 @@ else:
     else:
         st.warning("⚠️ No se pudo calcular ningún promedio (datos no numéricos).")
 
-# --- 4. Distribución de Confianza (M2) ---
+# ==================== GRÁFICA 4: M2 CONFIANZA ====================
 st.subheader("📊 Distribución del Puntaje de Confianza (M2)")
 st.markdown(
     """
-    <div class="explicacion">
-    <b>📌 ¿Qué pregunta responde?</b> ¿Cómo se distribuyen los niveles de confianza percibidos por el asesor durante las llamadas?<br>
-    <b>🔍 Interpretación:</b> Este histograma muestra la frecuencia de los puntajes de confianza (M2). Una concentración en valores altos indica que los asesores logran generar confianza en la mayoría de los casos. Si hay muchos valores bajos, podría ser necesario reforzar técnicas de rapport y credibilidad en la formación.
-    </div>
-    """,
+<div class="explicacion">
+<b>❓ ¿Qué pregunta resuelve esta gráfica?</b><br>
+<i>¿Cómo se distribuyen los puntajes de confianza (M2) entre los prospectos?</i><br>
+<b>🔍 Interpretación:</b> Mide el nivel de confianza transmitido durante la llamada. Una distribución sesgada a la derecha (puntajes altos) es deseable, mientras que una concentración en puntajes bajos puede indicar problemas en la comunicación o en el rapport con el prospecto.
+</div>
+""",
     unsafe_allow_html=True,
 )
 col_m2 = "M2_Confianza_Puntaje"
@@ -402,6 +442,16 @@ st.markdown("---")
 
 # ==================== ACORDEÓN: ANÁLISIS PORCENTUAL ====================
 with st.expander("📊 Análisis Porcentual (peso relativo de cada categoría)"):
+    st.markdown(
+        """
+    <div class="explicacion">
+    <b>❓ ¿Qué pregunta resuelve esta sección?</b><br>
+    <i>¿Qué porcentaje del total de objeciones (o no objeciones) representa cada categoría?</i><br>
+    <b>🔍 Interpretación:</b> Permite entender la importancia relativa de cada categoría. Una categoría que representa el 40% de las objeciones es un problema mucho más relevante que una que solo representa el 5%.
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
     if total_obj > 0:
         df_obj_pct = (
             df_filtrado[df_filtrado["es_objecion"] == True][col_obj]
@@ -427,7 +477,6 @@ with st.expander("📊 Análisis Porcentual (peso relativo de cada categoría)")
         st.plotly_chart(fig3, use_container_width=True)
     else:
         st.info("No hay objeciones para calcular porcentajes.")
-
     if total_no_obj > 0:
         df_no_pct = (
             df_filtrado[df_filtrado["es_objecion"] == False][col_obj]
@@ -505,18 +554,19 @@ st.markdown("---")
 
 # ==================== NUEVA SECCIÓN: ANÁLISIS POR CIUDAD Y ESTADO DE PAGO ====================
 with st.expander("🏙️ Análisis por Ciudad y Estado de Pago"):
-    st.markdown("### Resumen por ciudad")
-
-    # --- Tabla resumen ---
     st.markdown(
         """
-        <div class="explicacion">
-        <b>📌 ¿Qué pregunta responde?</b> ¿Cómo varía la tasa de conversión a PAGO entre las diferentes ciudades?<br>
-        <b>🔍 Interpretación:</b> Esta tabla muestra, para cada ciudad con al menos 5 llamadas, el total de llamadas, la cantidad de PAGO y NO PAGO, y los porcentajes correspondientes. Permite identificar rápidamente qué ciudades tienen mejor o peor desempeño en términos de cierre de ventas.
-        </div>
-        """,
+    <div class="explicacion">
+    <b>❓ ¿Qué pregunta resuelve esta sección?</b><br>
+    <i>¿Cómo varía la tasa de conversión a PAGO entre las diferentes ciudades? ¿Y cómo se relaciona la calificación de la llamada con el estado de pago?</i><br>
+    <b>🔍 Interpretación:</b> Esta sección identifica qué ciudades tienen mejor desempeño comercial y cuáles requieren atención especial. Además, muestra la fuerte relación entre la calidad de la llamada (medida por CALIFICACION_TOTAL) y la probabilidad de que el prospecto termine pagando.
+    </div>
+    """,
         unsafe_allow_html=True,
     )
+
+    # Tabla resumen por ciudad
+    st.markdown("### 📋 Resumen por ciudad")
     df_ciudad = (
         df_filtrado.groupby(col_ciudad)
         .agg(
@@ -529,16 +579,16 @@ with st.expander("🏙️ Análisis por Ciudad y Estado de Pago"):
     df_ciudad["% PAGO"] = (df_ciudad["PAGO"] / df_ciudad["Total"] * 100).round(1)
     df_ciudad["% NO PAGO"] = (df_ciudad["NO_PAGO"] / df_ciudad["Total"] * 100).round(1)
     df_ciudad = df_ciudad.sort_values("% PAGO", ascending=False)
-
     df_ciudad_show = df_ciudad[df_ciudad["Total"] >= 5].copy()
+
     if not df_ciudad_show.empty:
         st.dataframe(
             df_ciudad_show,
             column_config={
-                col_ciudad: st.column_config.TextColumn("Ciudad"),
-                "Total": st.column_config.NumberColumn("Total Llamadas"),
-                "PAGO": st.column_config.NumberColumn("PAGO"),
-                "NO_PAGO": st.column_config.NumberColumn("NO PAGO"),
+                col_ciudad: "Ciudad",
+                "Total": "Total Llamadas",
+                "PAGO": "PAGO",
+                "NO_PAGO": "NO PAGO",
                 "% PAGO": st.column_config.NumberColumn("% PAGO", format="%.1f%%"),
                 "% NO PAGO": st.column_config.NumberColumn(
                     "% NO PAGO", format="%.1f%%"
@@ -550,17 +600,8 @@ with st.expander("🏙️ Análisis por Ciudad y Estado de Pago"):
     else:
         st.info("No hay suficientes datos por ciudad para mostrar (mínimo 5 llamadas).")
 
-    # --- Gráfico: % PAGO por ciudad ---
+    # Gráfico de % PAGO por ciudad
     if not df_ciudad_show.empty:
-        st.markdown(
-            """
-            <div class="explicacion">
-            <b>📌 ¿Qué pregunta responde?</b> ¿Qué ciudades tienen las tasas de conversión más altas y cuáles las más bajas?<br>
-            <b>🔍 Interpretación:</b> El gráfico de barras ordena las ciudades de mayor a menor % de PAGO. Las barras más altas indican las plazas con mejor desempeño comercial. Esto ayuda a focalizar recursos en las ciudades con mayor potencial y a investigar las razones de bajo rendimiento en las que aparecen abajo.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
         fig_ciudad = px.bar(
             df_ciudad_show,
             x="Ciudad",
@@ -580,17 +621,19 @@ with st.expander("🏙️ Análisis por Ciudad y Estado de Pago"):
         )
         st.plotly_chart(fig_ciudad, use_container_width=True)
 
-    # --- Calificación promedio por ciudad y estado ---
-    st.markdown("### Calificación promedio por ciudad y estado de pago")
+    # Calificación promedio por ciudad y estado de pago
+    st.markdown("### 📊 Calificación promedio por ciudad y estado de pago")
     st.markdown(
         """
-        <div class="explicacion">
-        <b>📌 ¿Qué pregunta responde?</b> ¿La calidad de la llamada (reflejada en la calificación total) influye en el resultado de pago en cada ciudad?<br>
-        <b>🔍 Interpretación:</b> Esta tabla compara el promedio de CALIFICACION_TOTAL para llamadas que terminaron en PAGO vs NO PAGO, por ciudad. Una diferencia grande entre ambos promedios indica que las llamadas de mayor calidad tienen muchas más probabilidades de convertirse en PAGO. Esto valida la importancia de la calidad de la interacción para el cierre, independientemente de la ciudad.
-        </div>
-        """,
+    <div class="explicacion" style="margin-top:0;">
+    <b>❓ ¿Qué pregunta resuelve esta tabla?</b><br>
+    <i>¿Cómo influye la calidad de la llamada (medida por CALIFICACION_TOTAL) en la probabilidad de que el prospecto pague?</i><br>
+    <b>🔍 Interpretación:</b> En todas las ciudades, las llamadas que terminan en <b>PAGO</b> tienen una calificación promedio <b>significativamente más alta</b> que las que terminan en <b>NO PAGO</b>. Esto confirma que la calidad de la interacción es un predictor clave del resultado final. Cuanto mayor sea la diferencia, más determinante es la calidad de la llamada para esa ciudad.
+    </div>
+    """,
         unsafe_allow_html=True,
     )
+
     col_calif = "CALIFICACION_TOTAL"
     if col_calif in df_filtrado.columns:
         df_calif = (
@@ -601,73 +644,82 @@ with st.expander("🏙️ Análisis por Ciudad y Estado de Pago"):
         df_calif_pivot = df_calif.pivot(
             index=col_ciudad, columns=col_estado, values=col_calif
         ).reset_index()
-        df_calif_pivot.columns = [col_ciudad, "Prom_PAGO", "Prom_NO_PAGO"]
-        df_calif_pivot["Diferencia (PAGO - NO PAGO)"] = (
-            df_calif_pivot["Prom_PAGO"] - df_calif_pivot["Prom_NO_PAGO"]
-        ).round(1)
-        df_calif_show = df_calif_pivot.dropna(subset=["Prom_PAGO", "Prom_NO_PAGO"])
-        if not df_calif_show.empty:
-            st.dataframe(
-                df_calif_show,
-                column_config={
-                    col_ciudad: "Ciudad",
-                    "Prom_PAGO": st.column_config.NumberColumn(
-                        "Prom. CALIFICACIÓN (PAGO)", format="%.1f"
-                    ),
-                    "Prom_NO_PAGO": st.column_config.NumberColumn(
-                        "Prom. CALIFICACIÓN (NO PAGO)", format="%.1f"
-                    ),
-                    "Diferencia (PAGO - NO PAGO)": st.column_config.NumberColumn(
-                        "Diferencia", format="%.1f"
-                    ),
-                },
-                use_container_width=True,
-                hide_index=True,
-            )
+
+        nuevos_nombres = {col_ciudad: col_ciudad}
+        for col in df_calif_pivot.columns:
+            if col != col_ciudad:
+                nuevos_nombres[col] = f"Prom_{col}"
+        df_calif_pivot.rename(columns=nuevos_nombres, inplace=True)
+
+        if (
+            "Prom_PAGO" in df_calif_pivot.columns
+            and "Prom_NO_PAGO" in df_calif_pivot.columns
+        ):
+            df_calif_pivot["Diferencia (PAGO - NO PAGO)"] = (
+                df_calif_pivot["Prom_PAGO"] - df_calif_pivot["Prom_NO_PAGO"]
+            ).round(1)
+            df_calif_show = df_calif_pivot.dropna(subset=["Prom_PAGO", "Prom_NO_PAGO"])
+            if not df_calif_show.empty:
+                st.dataframe(
+                    df_calif_show,
+                    column_config={
+                        col_ciudad: "Ciudad",
+                        "Prom_PAGO": st.column_config.NumberColumn(
+                            "Prom. CALIFICACIÓN (PAGO)", format="%.1f"
+                        ),
+                        "Prom_NO_PAGO": st.column_config.NumberColumn(
+                            "Prom. CALIFICACIÓN (NO PAGO)", format="%.1f"
+                        ),
+                        "Diferencia (PAGO - NO PAGO)": st.column_config.NumberColumn(
+                            "Diferencia", format="%.1f"
+                        ),
+                    },
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            else:
+                st.info(
+                    "No hay datos suficientes para comparar calificaciones por estado."
+                )
         else:
-            st.info("No hay datos suficientes para comparar calificaciones por estado.")
+            st.info(
+                "No se encontraron los estados 'PAGO' y 'NO_PAGO' en los datos filtrados."
+            )
     else:
         st.info("La columna CALIFICACION_TOTAL no está disponible.")
 
-    # --- Insights textuales ---
+    # Insights textuales
     st.markdown("### 🔍 Insights clave por ciudad")
     if not df_ciudad_show.empty:
         top_ciudad = df_ciudad_show.iloc[0]
         bottom_ciudad = df_ciudad_show.iloc[-1]
-
         st.markdown(
-            f"""
-            <div class="insight-box">
-            <b>🏆 Mejor desempeño:</b> <b>{top_ciudad[col_ciudad]}</b> con un <b>{top_ciudad['% PAGO']:.1f}%</b> de conversión a PAGO.
-            </div>
-            """,
+            f"""<div class="insight-box"><b>🏆 Mejor desempeño:</b> <b>{top_ciudad[col_ciudad]}</b> con un <b>{top_ciudad['% PAGO']:.1f}%</b> de conversión a PAGO.</div>""",
             unsafe_allow_html=True,
         )
         st.markdown(
-            f"""
-            <div class="insight-box" style="border-left-color: #dc3545;">
-            <b>⚠️ Área de mejora:</b> <b>{bottom_ciudad[col_ciudad]}</b> con solo un <b>{bottom_ciudad['% PAGO']:.1f}%</b> de conversión a PAGO.
-            </div>
-            """,
+            f"""<div class="insight-box" style="border-left-color: #dc3545;"><b>⚠️ Área de mejora:</b> <b>{bottom_ciudad[col_ciudad]}</b> con solo un <b>{bottom_ciudad['% PAGO']:.1f}%</b> de conversión a PAGO.</div>""",
             unsafe_allow_html=True,
         )
-
-        if col_calif in df_filtrado.columns:
+        if (
+            col_calif in df_filtrado.columns
+            and "Prom_PAGO" in locals()
+            and "Prom_NO_PAGO" in locals()
+        ):
             st.markdown(
                 """
-                <div class="insight-box">
-                <b>📊 Correlación con la calificación:</b> En todas las ciudades, las llamadas que terminan en <b>PAGO</b> tienen una calificación total promedio <b>significativamente más alta</b> que las que terminan en <b>NO PAGO</b>. Esto confirma que la calidad de la interacción es un predictor clave del resultado final.
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        st.markdown(
-            """
             <div class="insight-box">
-            <b>💡 Recomendación:</b> Se sugiere investigar las razones detrás de la baja conversión en ciudades como <b>Neiva</b> y <b>Santa Marta</b> (perfil de prospecto, estrategia de comunicación, seguimiento) y replicar las prácticas exitosas de <b>Bucaramanga</b> y <b>Medellín</b>.
+            <b>📊 Correlación con la calificación:</b> En todas las ciudades, las llamadas que terminan en <b>PAGO</b> tienen una calificación total promedio <b>significativamente más alta</b> que las que terminan en <b>NO PAGO</b>. Esto confirma que la calidad de la interacción es un predictor clave del resultado final.
             </div>
             """,
+                unsafe_allow_html=True,
+            )
+        st.markdown(
+            """
+        <div class="insight-box">
+        <b>💡 Recomendación:</b> Se sugiere investigar las razones detrás de la baja conversión en ciudades como <b>Neiva</b> y <b>Santa Marta</b> (perfil de prospecto, estrategia de comunicación, seguimiento) y replicar las prácticas exitosas de <b>Bucaramanga</b> y <b>Medellín</b>.
+        </div>
+        """,
             unsafe_allow_html=True,
         )
     else:
@@ -679,11 +731,12 @@ st.markdown("---")
 st.subheader("📋 Clasificación de categorías")
 st.markdown(
     """
-    <div class="explicacion">
-    <b>📌 ¿Qué pregunta responde?</b> ¿Qué significa cada categoría de objeción o no objeción?<br>
-    <b>🔍 Interpretación:</b> Esta tabla proporciona una definición clara de cada tipo de objeción y su clasificación. Sirve como referencia para entender mejor los gráficos y para uniformar el criterio de los asesores al momento de etiquetar las llamadas.
-    </div>
-    """,
+<div class="explicacion">
+<b>❓ ¿Qué pregunta resuelve esta tabla?</b><br>
+<i>¿Qué significa cada categoría de objeción y cómo se clasifica?</i><br>
+<b>🔍 Interpretación:</b> Esta tabla proporciona una referencia rápida para entender cada tipo de objeción o situación registrada durante las llamadas, facilitando la interpretación de las gráficas anteriores.
+</div>
+""",
     unsafe_allow_html=True,
 )
 datos_tabla = []
@@ -699,9 +752,9 @@ df_tabla = pd.DataFrame(datos_tabla)
 st.dataframe(
     df_tabla,
     column_config={
-        "Categoría": st.column_config.TextColumn("Categoría"),
-        "Tipo": st.column_config.TextColumn("Clasificación"),
-        "Definición": st.column_config.TextColumn("Definición"),
+        "Categoría": "Categoría",
+        "Tipo": "Clasificación",
+        "Definición": "Definición",
     },
     use_container_width=True,
     hide_index=True,
