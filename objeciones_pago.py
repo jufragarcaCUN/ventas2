@@ -52,7 +52,10 @@ st.markdown(
 st.title("🎯 Análisis de Objeciones COE - CUN")
 
 # ==================== RUTA DEL EXCEL ====================
-RUTA_EXCEL = r"C:\Users\juan_garnicac\Documents\ProyectosVisual\Ventas\presentaciones\salida_con_pago.xlsx"
+import pathlib
+
+script_dir = pathlib.Path(__file__).parent.absolute()
+RUTA_EXCEL = script_dir / "salida_con_pago.xlsx"
 
 # ==================== MAPEO Y DEFINICIONES ====================
 MAPEO_OBJECION = {
