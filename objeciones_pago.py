@@ -7,7 +7,7 @@ import plotly.express as px
 warnings.filterwarnings("ignore")
 
 st.set_page_config(
-    page_title="Análisis de Objeciones COE", page_icon="🎯", layout="wide"
+    page_title="Análisis de Objeciones PAGO", page_icon="💰", layout="wide"
 )
 
 # ==================== CSS ====================
@@ -49,7 +49,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🎯 Análisis de Objeciones COE - CUN")
+st.title("💰 Análisis de Objeciones - Estado PAGO")
 
 # ==================== RUTA DEL EXCEL ====================
 script_dir = pathlib.Path(__file__).parent.absolute()
@@ -103,12 +103,21 @@ def cargar_datos():
     col_ciudad = "Zoho_Ciudad"
     col_periodo = "Zoho_Periodo"
     col_fecha = "Fecha"
-    col_estado = "Zoho_Estado_Pago"
-
+    # Detectar automáticamente el nombre de la columna de estado de pago
     columnas_reales = df.columns.tolist()
+    if "Zoho_Estado_Pago" in columnas_reales:
+        col_estado = "Zoho_Estado_Pago"
+    elif "ESTADO_PAGO" in columnas_reales:
+        col_estado = "ESTADO_PAGO"
+    else:
+        st.error(
+            "❌ No se encontró ninguna columna de estado de pago (Zoho_Estado_Pago o ESTADO_PAGO)."
+        )
+        st.write("Columnas disponibles:", columnas_reales)
+        st.stop()
 
     # Verificar columnas obligatorias
-    for col in [col_prog, col_obj, col_fecha, col_estado]:
+    for col in [col_prog, col_obj, col_fecha]:
         if col not in columnas_reales:
             st.error(f"❌ Columna requerida '{col}' no encontrada.")
             st.write("Columnas disponibles:", columnas_reales)
@@ -132,12 +141,11 @@ def cargar_datos():
     else:
         df[col_ciudad] = "Sin Ciudad"
 
-    # Período (opcional, pero existe en tu SQL)
+    # Período (opcional)
     if col_periodo in columnas_reales:
         df[col_periodo] = df[col_periodo].fillna("Sin Período").astype(str).str.strip()
     else:
         df[col_periodo] = "Sin Período"
-        st.info(f"ℹ️ Columna '{col_periodo}' no encontrada. Se usará 'Sin Período'.")
 
     # Mapear objeciones
     df["es_objecion"] = df[col_obj].map(MAPEO_OBJECION)
@@ -184,12 +192,18 @@ periodos = ["Todos"] + sorted(df[col_periodo].dropna().astype(str).unique())
 per_sel = st.sidebar.multiselect("Período:", options=periodos, default=["Todos"])
 per_filtro = periodos[1:] if "Todos" in per_sel else per_sel
 
+# Filtro 5: Estado de Pago
+estados = ["Todos"] + sorted(df[col_estado].dropna().astype(str).unique())
+est_sel = st.sidebar.multiselect("Estado de Pago:", options=estados, default=["Todos"])
+est_filtro = estados[1:] if "Todos" in est_sel else est_sel
+
 # Aplicar todos los filtros
 df_filtrado = df[
     (df[col_prog].isin(prog_filtro))
     & (df[col_mod].isin(mod_filtro))
     & (df[col_ciudad].isin(ciu_filtro))
     & (df[col_periodo].isin(per_filtro))
+    & (df[col_estado].isin(est_filtro))
 ]
 
 if df_filtrado.empty:
@@ -284,48 +298,143 @@ else:
 
 st.markdown("---")
 
-# ==================== ANÁLISIS DETALLADOS (EXPANDER) ====================
-with st.expander("📊 Ver análisis detallados (P1-P7, M2, porcentajes, ciudad)"):
-
-    # Promedios P1-P7
-    st.subheader("📊 Promedios de Calificaciones (P1 - P7)")
-    columnas_p1p7 = [
-        "P1_Promesa",
-        "P2_Beneficio",
-        "P3_Entregables",
-        "P4_Garantia",
-        "P5_Regalos",
-        "P6_Precio",
-        "P7_Cierre",
-    ]
-    existentes = [col for col in columnas_p1p7 if col in df_filtrado.columns]
-    if not existentes:
-        st.info("ℹ️ Ninguna de las columnas P1-P7 está disponible.")
+# ==================== PROMEDIOS P1-P7 ====================
+st.subheader("📊 Promedios de Calificaciones (P1 - P7)")
+columnas_p1p7 = [
+    "P1_Promesa",
+    "P2_Beneficio",
+    "P3_Entregables",
+    "P4_Garantia",
+    "P5_Regalos",
+    "P6_Precio",
+    "P7_Cierre",
+]
+existentes = [col for col in columnas_p1p7 if col in df_filtrado.columns]
+if not existentes:
+    st.info("ℹ️ Ninguna de las columnas P1-P7 está disponible.")
+else:
+    promedios = []
+    for col in existentes:
+        serie = pd.to_numeric(df_filtrado[col], errors="coerce")
+        promedio = serie.mean(skipna=True)
+        if pd.notna(promedio):
+            promedios.append({"Columna": col, "Promedio": promedio})
+    if promedios:
+        df_promedios = pd.DataFrame(promedios)
+        fig_p1p7 = px.bar(
+            df_promedios,
+            x="Columna",
+            y="Promedio",
+            color_discrete_sequence=["#1E5D2F"],
+            text="Promedio",
+            text_auto=".2f",
+        )
+        fig_p1p7.update_traces(textposition="outside")
+        fig_p1p7.update_layout(height=400, margin=dict(l=0, r=0, t=40, b=0))
+        st.plotly_chart(fig_p1p7, use_container_width=True)
     else:
-        promedios = []
-        for col in existentes:
-            serie = pd.to_numeric(df_filtrado[col], errors="coerce")
-            promedio = serie.mean(skipna=True)
-            if pd.notna(promedio):
-                promedios.append({"Columna": col, "Promedio": promedio})
-        if promedios:
-            df_promedios = pd.DataFrame(promedios)
-            fig_p1p7 = px.bar(
-                df_promedios,
-                x="Columna",
-                y="Promedio",
-                color_discrete_sequence=["#1E5D2F"],
-                text="Promedio",
-                text_auto=".2f",
-            )
-            fig_p1p7.update_traces(textposition="outside")
-            fig_p1p7.update_layout(height=400, margin=dict(l=0, r=0, t=40, b=0))
-            st.plotly_chart(fig_p1p7, use_container_width=True)
-        else:
-            st.warning("⚠️ No se pudo calcular ningún promedio.")
+        st.warning("⚠️ No se pudo calcular ningún promedio.")
 
-    # M2 Confianza
-    st.subheader("📊 Distribución del Puntaje de Confianza (M2)")
+st.markdown("---")
+
+# ==================== ANÁLISIS PORCENTUAL ====================
+st.subheader("📊 Análisis Porcentual (peso relativo)")
+if total_obj > 0:
+    df_obj_pct = (
+        df_filtrado[df_filtrado["es_objecion"] == True][col_obj]
+        .value_counts()
+        .reset_index()
+    )
+    df_obj_pct.columns = ["Categoría", "Total"]
+    df_obj_pct["Porcentaje"] = (df_obj_pct["Total"] / total_obj * 100).round(1)
+    fig3 = px.bar(
+        df_obj_pct,
+        x="Porcentaje",
+        y="Categoría",
+        orientation="h",
+        color_discrete_sequence=["#1E5D2F"],
+        text="Porcentaje",
+    )
+    fig3.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+    fig3.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0))
+    st.plotly_chart(fig3, use_container_width=True)
+else:
+    st.info("No hay objeciones para calcular porcentajes.")
+
+if total_no_obj > 0:
+    df_no_pct = (
+        df_filtrado[df_filtrado["es_objecion"] == False][col_obj]
+        .value_counts()
+        .reset_index()
+    )
+    df_no_pct.columns = ["Categoría", "Total"]
+    df_no_pct["Porcentaje"] = (df_no_pct["Total"] / total_no_obj * 100).round(1)
+    fig4 = px.bar(
+        df_no_pct,
+        x="Porcentaje",
+        y="Categoría",
+        orientation="h",
+        color_discrete_sequence=["#2B6CB0"],
+        text="Porcentaje",
+    )
+    fig4.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+    fig4.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0))
+    st.plotly_chart(fig4, use_container_width=True)
+else:
+    st.info("No hay no‑objeciones para calcular porcentajes.")
+
+st.markdown("---")
+
+# ==================== ANÁLISIS POR CIUDAD ====================
+st.subheader("🏙️ Análisis por Ciudad y Estado de Pago")
+if col_ciudad in df_filtrado.columns and df_filtrado[col_ciudad].nunique() > 1:
+    df_ciudad = (
+        df_filtrado.groupby([col_ciudad, col_estado]).size().reset_index(name="Total")
+    )
+    pivot = df_ciudad.pivot(
+        index=col_ciudad, columns=col_estado, values="Total"
+    ).fillna(0)
+    pivot["Total"] = pivot.sum(axis=1)
+    for estado in pivot.columns:
+        if estado != "Total":
+            pivot[f"% {estado}"] = (pivot[estado] / pivot["Total"] * 100).round(1)
+    pivot = pivot.reset_index().sort_values("Total", ascending=False)
+    st.dataframe(pivot, use_container_width=True, hide_index=True)
+
+    estados_disponibles = [
+        col
+        for col in pivot.columns
+        if col not in ["Ciudad", "Total"] and not col.startswith("%")
+    ]
+    if estados_disponibles:
+        fig_ciudad = px.bar(
+            pivot,
+            x=col_ciudad,
+            y=estados_disponibles,
+            title="Distribución de Estados de Pago por Ciudad",
+            labels={"value": "Número de llamadas", "variable": "Estado"},
+            barmode="stack",
+            text_auto=True,
+        )
+        fig_ciudad.update_layout(height=400, margin=dict(l=0, r=0, t=40, b=0))
+        st.plotly_chart(fig_ciudad, use_container_width=True)
+else:
+    st.info("Columna 'Ciudad' no disponible o con un solo valor.")
+
+st.markdown("---")
+
+# ==================== SOLO M2 DENTRO DE EXPANDER ====================
+with st.expander("📊 Ver Distribución del Puntaje de Confianza (M2)"):
+    st.markdown(
+        """
+    <div class="explicacion">
+    <b>❓ ¿Qué pregunta resuelve esta gráfica?</b><br>
+    <i>¿Cómo se distribuyen los puntajes de confianza (M2) entre los prospectos?</i><br>
+    <b>🔍 Interpretación:</b> Mide el nivel de confianza transmitido durante la llamada. Una distribución sesgada a la derecha (puntajes altos) es deseable, mientras que una concentración en puntajes bajos puede indicar problemas en la comunicación o en el rapport con el prospecto.
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
     col_m2 = "M2_Confianza_Puntaje"
     if col_m2 in df_filtrado.columns:
         serie_m2 = pd.to_numeric(df_filtrado[col_m2], errors="coerce").dropna()
@@ -343,89 +452,6 @@ with st.expander("📊 Ver análisis detallados (P1-P7, M2, porcentajes, ciudad)
             st.info("ℹ️ No hay datos numéricos para M2_Confianza_Puntaje.")
     else:
         st.info("ℹ️ La columna M2_Confianza_Puntaje no está disponible.")
-
-    # Análisis porcentual
-    st.subheader("📊 Análisis Porcentual (peso relativo)")
-    if total_obj > 0:
-        df_obj_pct = (
-            df_filtrado[df_filtrado["es_objecion"] == True][col_obj]
-            .value_counts()
-            .reset_index()
-        )
-        df_obj_pct.columns = ["Categoría", "Total"]
-        df_obj_pct["Porcentaje"] = (df_obj_pct["Total"] / total_obj * 100).round(1)
-        fig3 = px.bar(
-            df_obj_pct,
-            x="Porcentaje",
-            y="Categoría",
-            orientation="h",
-            color_discrete_sequence=["#1E5D2F"],
-            text="Porcentaje",
-        )
-        fig3.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        fig3.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0))
-        st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.info("No hay objeciones para calcular porcentajes.")
-
-    if total_no_obj > 0:
-        df_no_pct = (
-            df_filtrado[df_filtrado["es_objecion"] == False][col_obj]
-            .value_counts()
-            .reset_index()
-        )
-        df_no_pct.columns = ["Categoría", "Total"]
-        df_no_pct["Porcentaje"] = (df_no_pct["Total"] / total_no_obj * 100).round(1)
-        fig4 = px.bar(
-            df_no_pct,
-            x="Porcentaje",
-            y="Categoría",
-            orientation="h",
-            color_discrete_sequence=["#2B6CB0"],
-            text="Porcentaje",
-        )
-        fig4.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        fig4.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0))
-        st.plotly_chart(fig4, use_container_width=True)
-    else:
-        st.info("No hay no‑objeciones para calcular porcentajes.")
-
-    # Análisis por ciudad
-    st.subheader("🏙️ Análisis por Ciudad")
-    if col_ciudad in df_filtrado.columns and df_filtrado[col_ciudad].nunique() > 1:
-        df_ciudad = (
-            df_filtrado.groupby(col_ciudad)
-            .agg(
-                Total=("es_objecion", "count"),
-                PAGO=(col_estado, lambda x: (x == "PAGO").sum()),
-                NO_PAGO=(col_estado, lambda x: (x == "NO PAGO").sum()),
-            )
-            .reset_index()
-        )
-        df_ciudad["% PAGO"] = (df_ciudad["PAGO"] / df_ciudad["Total"] * 100).round(1)
-        df_ciudad = df_ciudad.sort_values("% PAGO", ascending=False)
-        df_ciudad_show = df_ciudad[df_ciudad["Total"] >= 5].copy()
-
-        if not df_ciudad_show.empty:
-            st.dataframe(df_ciudad_show, use_container_width=True, hide_index=True)
-            fig_ciudad = px.bar(
-                df_ciudad_show,
-                x=col_ciudad,
-                y="% PAGO",
-                color="% PAGO",
-                color_continuous_scale="Greens",
-                text="% PAGO",
-                labels={col_ciudad: "Ciudad", "% PAGO": "% de PAGO"},
-            )
-            fig_ciudad.update_traces(
-                texttemplate="%{text:.1f}%", textposition="outside"
-            )
-            fig_ciudad.update_layout(height=400, margin=dict(l=0, r=0, t=40, b=0))
-            st.plotly_chart(fig_ciudad, use_container_width=True)
-        else:
-            st.info("No hay suficientes datos por ciudad.")
-    else:
-        st.info("Columna 'Ciudad' no disponible o con un solo valor.")
 
 st.markdown("---")
 
