@@ -9,6 +9,7 @@ paginas = [
     st.Page("videos.py", title="Rendimiento AWS & Videos", icon="⚙️"),
     st.Page("objeciones_NO_pago.py", title="No pago", icon="⚙️"),
     st.Page("objeciones_pago.py", title="objeciones_pago.py", icon="⚙️"),
+    st.Page("soloObjeciones.py", title="soloObjeciones.py", icon="⚙️"),
 ]
 
 pg = st.navigation(paginas)
