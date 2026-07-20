@@ -7,6 +7,14 @@ st.set_page_config(page_title="Ecosistema Comercial CUN", page_icon="🎓", layo
 # 2. Definimos la ruta exacta de tu carpeta de páginas
 CARPETA_PAGINAS = os.path.abspath("paginas")
 
+# 3. Definimos las páginas
+pag_presentacion = st.Page(
+    os.path.join(CARPETA_PAGINAS, "0_presentacion.py"),
+    title="📋 Modelo Comercial",
+    icon="📋",
+    default=True,  # 👈 Esta será la página principal al abrir
+)
+
 pag_operativa = st.Page(
     os.path.join(CARPETA_PAGINAS, "01_Radiografia_Operativa.py"),
     title="1. Radiografía Operativa",
@@ -25,8 +33,10 @@ pag_pagos = st.Page(
     icon="💰",
 )
 
-# 3. Crear la navegación
-pg = st.navigation([pag_operativa, pag_comercial, pag_pagos])
+# 4. Crear la navegación (el orden define el menú)
+pg = st.navigation(
+    [pag_presentacion, pag_operativa, pag_comercial, pag_pagos]  # 👈 Primero en el menú
+)
 
-# 4. Ejecutar la app
+# 5. Ejecutar la app
 pg.run()
