@@ -9,7 +9,7 @@ CARPETA_PAGINAS = os.path.abspath("paginas")
 
 # 3. Definimos las páginas
 pag_presentacion = st.Page(
-    os.path.join(CARPETA_PAGINAS, "0_presentacion.py"),
+    os.path.join(CARPETA_PAGINAS, "0_Presentacion.py"),
     title="📋 Modelo Comercial",
     icon="📋",
     default=True,  # 👈 Esta será la página principal al abrir
