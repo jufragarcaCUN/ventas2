@@ -134,7 +134,7 @@ def cargar_datos():
     columnas = [
         "ciudad_residencia",
         "programalimpio",
-        "modalidad_normalizada",  # ✅ CORREGIDO: usar modalidad_normalizada
+        "modalidad_normalizada",
         "Objecion_Detectada",
         "CALIFICACION_TOTAL",
         "periodo",
@@ -148,15 +148,13 @@ def cargar_datos():
         "P7_Cierre",
         "canal_fuente",
         "fuerzacomercial",
-        "ciudad",  # ✅ AGREGADO: columna ciudad normalizada
+        "ciudad",
     ]
 
     for col in columnas:
         if col not in df.columns:
             st.warning(f"⚠️ Columna '{col}' no encontrada. Se omitirá.")
 
-    # ==================== CORRECCIÓN: USAR CIUDAD NORMALIZADA ====================
-    # Si existe la columna 'ciudad' (normalizada) usarla, si no usar 'ciudad_residencia'
     if "ciudad" in df.columns:
         df["ciudad_para_filtro"] = df["ciudad"].fillna("Sin Ciudad").astype(str)
     else:
@@ -166,7 +164,6 @@ def cargar_datos():
 
     df["programalimpio"] = df["programalimpio"].fillna("Sin Programa").astype(str)
 
-    # ==================== CORRECCIÓN: USAR MODALIDAD_NORMALIZADA ====================
     if "modalidad_normalizada" in df.columns:
         df["modalidad_para_filtro"] = (
             df["modalidad_normalizada"].fillna("Sin Modalidad").astype(str)
@@ -229,10 +226,9 @@ def cargar_datos():
 
 df = cargar_datos()
 
-# ==================== FILTROS (MULTISELECT CON "TODOS") ====================
+# ==================== FILTROS ====================
 st.sidebar.header("🔍 Filtros Globales")
 
-# ==================== CORRECCIÓN: USAR COLUMNAS CORRECTAS ====================
 opciones_ciudad = ["Todos"] + sorted(
     df["ciudad_para_filtro"].dropna().unique().tolist()
 )
@@ -263,7 +259,7 @@ tipo_registro_seleccionado = st.sidebar.multiselect(
     "📋 Tipo de Registro", options=opciones_tipo, default=["Todos"]
 )
 
-# ==================== MOSTRAR FILTROS SELECCIONADOS ====================
+# ==================== FILTROS ACTIVOS ====================
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📌 Filtros activos:")
 
@@ -291,7 +287,6 @@ else:
 # ==================== APLICAR FILTROS ====================
 df_filtrado = df.copy()
 
-# ==================== CORRECCIÓN: USAR COLUMNAS CORRECTAS ====================
 if ciudad_seleccionada and "Todos" not in ciudad_seleccionada:
     df_filtrado = df_filtrado[
         df_filtrado["ciudad_para_filtro"].isin(ciudad_seleccionada)
@@ -363,15 +358,14 @@ def calcular_promedios_p(df, objecion):
     return promedios
 
 
-# ==================== TÍTULO Y GUÍA DE INSTRUCCIONES ====================
+# ==================== TÍTULO ====================
 st.title("🎯 Diagnóstico Comercial")
 st.markdown("### Inteligencia Comercial CUN")
 
 with st.expander(
     "📖 Haz clic aquí para ver las instrucciones del tablero 📋", expanded=True
 ):
-    st.markdown(
-        """
+    st.markdown("""
         ### ¿Cómo interactuar con los gráficos y filtros del tablero?
         
         * **Filtros Laterales 🔍 :** Usa los desplegables de la izquierda si deseas acotar los datos por una **Ciudad, Programa o Modalidad** específica. Por defecto, están en **'Todos'**.
@@ -381,8 +375,7 @@ with st.expander(
           Haz clic en el selector de **Categoría recuperable** ⬇️ para enfocar el análisis únicamente en prospectos que pidieron rellamada o estaban ocupados.
         * **Sección 3 (Análisis por Pilar) 🧬 :** 
           Haz clic en el selector de **Pilar del speech** ⬇️ para cambiar de criterio (ej. de *P1_Promesa* a *P6_Precio*) y observar qué objeciones específicas se disparan con mayor frecuencia bajo esa métrica.
-        """
-    )
+        """)
 
 # ==================== RESUMEN ====================
 st.markdown("---")
@@ -401,7 +394,7 @@ with col1:
             <div class="label">📞 Total Llamadas</div>
             <div class="value">{total:,}</div>
         </div>
-    """,
+        """,
         unsafe_allow_html=True,
     )
 
@@ -413,7 +406,7 @@ with col2:
             <div class="value" style="color:#c62828;">{total_obj:,}</div>
             <div class="sub">{pct_obj:.1f}%</div>
         </div>
-    """,
+        """,
         unsafe_allow_html=True,
     )
 
@@ -426,7 +419,7 @@ with col3:
             <div class="label">⭐ Calificación Promedio</div>
             <div class="value" style="color:#6a1b9a;">{calif_prom:.1f}%</div>
         </div>
-    """,
+        """,
         unsafe_allow_html=True,
     )
 
@@ -550,14 +543,14 @@ else:
 
         st.markdown(
             f"""
-        <div class="recomendacion-box">
-            <strong>💡 Recomendación para "{obj_seleccionada}":</strong><br><br>
-            🔹 <strong>Pilar más débil:</strong> <strong>{pilar_min}</strong> ({promedios[pilar_min]:.1f}%) - 
-            <span style="color:#c62828;">¡ENFOCAR ENTRENAMIENTO AQUÍ!</span><br>
-            🔹 <strong>Pilar más fuerte:</strong> {pilar_max} ({promedios[pilar_max]:.1f}%)<br>
-            🔹 <strong>Definición:</strong> {DEFINICIONES.get(obj_seleccionada, '')}
-        </div>
-        """,
+            <div class="recomendacion-box">
+                <strong>💡 Recomendación para "{obj_seleccionada}":</strong><br><br>
+                🔹 <strong>Pilar más débil:</strong> <strong>{pilar_min}</strong> ({promedios[pilar_min]:.1f}%) - 
+                <span style="color:#c62828;">¡ENFOCAR ENTRENAMIENTO AQUÍ!</span><br>
+                🔹 <strong>Pilar más fuerte:</strong> {pilar_max} ({promedios[pilar_max]:.1f}%)<br>
+                🔹 <strong>Definición:</strong> {DEFINICIONES.get(obj_seleccionada, '')}
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
@@ -672,13 +665,13 @@ if not df_recuperables.empty:
 
             st.markdown(
                 f"""
-            <div class="recomendacion-box" style="border-left-color: #e65100; background: #fff3e0;">
-                <strong>📌 Plan de acción para "{cat_seleccionada}":</strong><br><br>
-                🔹 <strong>Pilar a reforzar:</strong> <strong style="color:#c62828;">{pilar_debil}</strong> ({promedios_cat[pilar_debil]:.1f}%)<br><br>
-                <strong>✅ Recomendación:</strong> En la próxima llamada, enfocar el entrenamiento en <strong>{pilar_debil}</strong> 
-                para mejorar la conversión de estos leads.
-            </div>
-            """,
+                <div class="recomendacion-box" style="border-left-color: #e65100; background: #fff3e0;">
+                    <strong>📌 Plan de acción para "{cat_seleccionada}":</strong><br><br>
+                    🔹 <strong>Pilar a reforzar:</strong> <strong style="color:#c62828;">{pilar_debil}</strong> ({promedios_cat[pilar_debil]:.1f}%)<br><br>
+                    <strong>✅ Recomendación:</strong> En la próxima llamada, enfocar el entrenamiento en <strong>{pilar_debil}</strong> 
+                    para mejorar la conversión de estos leads.
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
@@ -719,12 +712,18 @@ else:
 st.markdown("---")
 
 # ==================== SECCIÓN 3: ANÁLISIS POR PILAR ====================
+# ==================== SECCIÓN 3: ANÁLISIS POR PILAR ====================
+# ==================== SECCIÓN 3: ANÁLISIS POR PILAR ====================
 st.markdown("## 🧬 Análisis por Pilar del Speech")
+
 st.markdown(
     """
 <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-    <strong>🎯 Objetivo:</strong> Identificar qué objeciones y no objeciones están más asociadas a cada pilar del speech.
-    <br>📊 <strong>Análisis:</strong> Selecciona un pilar y observa la distribución de objeciones y no objeciones relacionadas.
+    <strong>🎯 Objetivo:</strong> Identificar qué objeciones están asociadas a cada rango de calificación del pilar seleccionado.
+    <br>📊 <strong>Análisis:</strong> 
+    <br>🔴 <strong>Rango Bajo:</strong> 0 - 30
+    <br>🟡 <strong>Rango Medio:</strong> 30 - 60
+    <br>🟢 <strong>Rango Alto:</strong> 60 - 100
 </div>
 """,
     unsafe_allow_html=True,
@@ -733,6 +732,7 @@ st.markdown(
 st.markdown(
     "##### Haz clic aquí abajo y cambia el pilar del speech para redistribuir las métricas ⬇️"
 )
+
 pilar_seleccionado = st.selectbox(
     "Selecciona un pilar del speech para analizar:",
     options=COLUMNAS_P,
@@ -742,6 +742,7 @@ pilar_seleccionado = st.selectbox(
 
 nombre_pilar = pilar_seleccionado.replace("P", "P ")
 
+# Filtrar datos con calificación en el pilar seleccionado
 df_pilar = df_filtrado[df_filtrado[pilar_seleccionado].notna()]
 
 if df_pilar.empty:
@@ -753,96 +754,224 @@ else:
         f"📊 **{len(df_pilar):,}** registros con calificación en **{nombre_pilar}**"
     )
 
+    # ===== CREAR RANGOS DE CALIFICACIÓN =====
+    def asignar_rango(valor):
+        if valor < 30:
+            return "Bajo (0-30)"
+        elif valor < 60:
+            return "Medio (30-60)"
+        else:
+            return "Alto (60-100)"
+
+    df_pilar["Rango"] = df_pilar[pilar_seleccionado].apply(asignar_rango)
+
     st.markdown("---")
 
-    # ===== GRÁFICO 1: OBJECIONES =====
-    st.markdown(f"### ✅ Objeciones")
+    # ===== GRÁFICO 1: DISTRIBUCIÓN DE RANGOS =====
+    st.markdown("### Distribución de Rangos de Calificación")
+
+    rangos_counts = df_pilar["Rango"].value_counts().reset_index()
+    rangos_counts.columns = ["Rango", "Cantidad"]
+
+    orden_rangos = ["Bajo (0-30)", "Medio (30-60)", "Alto (60-100)"]
+    rangos_counts["Rango"] = pd.Categorical(
+        rangos_counts["Rango"], categories=orden_rangos, ordered=True
+    )
+    rangos_counts = rangos_counts.sort_values("Rango")
+
+    colores_rangos = {
+        "Bajo (0-30)": "#B71C1C",
+        "Medio (30-60)": "#F57F17",
+        "Alto (60-100)": "#1B5E20",
+    }
+
+    fig_rangos = go.Figure()
+    fig_rangos.add_trace(
+        go.Bar(
+            y=rangos_counts["Rango"],
+            x=rangos_counts["Cantidad"],
+            orientation="h",
+            text=rangos_counts["Cantidad"],
+            textposition="outside",
+            marker_color=[colores_rangos[r] for r in rangos_counts["Rango"]],
+            textfont=dict(size=16, color="black"),
+        )
+    )
+    fig_rangos.update_layout(
+        height=500,
+        xaxis_title="Cantidad de Registros",
+        yaxis_title="",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=False,
+        margin=dict(l=50, r=50, t=30, b=50),
+    )
+    st.plotly_chart(fig_rangos, use_container_width=True)
+
+    st.markdown("---")
+
+    # ===== GRÁFICO 2: OBJECIONES POR RANGO =====
+    st.markdown("### Objeciones por Rango de Calificación")
 
     df_obj_pilar = df_pilar[df_pilar["Tipo"] == "Objeción"]
 
     if not df_obj_pilar.empty:
-        obj_pilar_data = df_obj_pilar["Objecion_Detectada"].value_counts().reset_index()
-        obj_pilar_data.columns = ["Objeción", "Cantidad"]
-        obj_pilar_data["Porcentaje"] = (
-            obj_pilar_data["Cantidad"] / obj_pilar_data["Cantidad"].sum() * 100
-        ).round(1)
-        obj_pilar_data = obj_pilar_data.sort_values("Cantidad", ascending=True)
-
-        fig_obj_pilar = go.Figure()
-        fig_obj_pilar.add_trace(
-            go.Bar(
-                y=obj_pilar_data["Objeción"],
-                x=obj_pilar_data["Cantidad"],
-                orientation="h",
-                text=obj_pilar_data["Porcentaje"].apply(lambda x: f"{x:.1f}%"),
-                textposition="outside",
-                marker=dict(
-                    color=obj_pilar_data["Cantidad"],
-                    colorscale="Reds",
-                    showscale=True,
-                    colorbar=dict(title="Cantidad"),
-                ),
-            )
+        cross_tab = pd.crosstab(
+            df_obj_pilar["Rango"], df_obj_pilar["Objecion_Detectada"]
         )
-        fig_obj_pilar.update_layout(
-            height=400,
-            xaxis_title="Cantidad",
+        cross_tab = cross_tab.reindex(orden_rangos)
+
+        colores_obj = {
+            "Competencia": "#C62828",
+            "Economica": "#D84315",
+            "No_interesado": "#E65100",
+            "Terceros_Familia": "#F57C00",
+            "Tiempo_flexibilidad": "#FF8F00",
+        }
+
+        fig_obj_rangos = go.Figure()
+
+        for objecion in cross_tab.columns:
+            color = colores_obj.get(objecion, "#888888")
+            fig_obj_rangos.add_trace(
+                go.Bar(
+                    name=objecion,
+                    y=cross_tab.index,
+                    x=cross_tab[objecion],
+                    orientation="h",
+                    marker_color=color,
+                    text=cross_tab[objecion],
+                    textposition="inside",
+                    textfont=dict(size=13, color="white"),
+                )
+            )
+
+        fig_obj_rangos.update_layout(
+            barmode="group",
+            height=550,
+            xaxis_title="Cantidad de Objeciones",
             yaxis_title="",
-            margin=dict(l=10, r=30, t=20, b=20),
+            legend_title="Objeción",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+                font=dict(size=12),
+            ),
+            margin=dict(l=50, r=50, t=50, b=50),
         )
-        st.plotly_chart(fig_obj_pilar, use_container_width=True)
+        st.plotly_chart(fig_obj_rangos, use_container_width=True)
+
+        # ===== INSIGHTS =====
+        st.markdown("---")
+        st.markdown("### Insights por Rango")
+
+        total_objeciones = len(df_obj_pilar)
+
+        for rango in orden_rangos:
+            if rango in cross_tab.index:
+                total_rango = cross_tab.loc[rango].sum()
+                if total_rango > 0:
+                    obj_data = cross_tab.loc[rango]
+                    obj_data_pct = (obj_data / total_rango * 100).round(1)
+
+                    obj_sorted = obj_data.sort_values(ascending=False)
+                    obj_pct_sorted = obj_data_pct[obj_sorted.index]
+
+                    obj_list = []
+                    for obj, count in obj_sorted.items():
+                        pct = obj_pct_sorted[obj]
+                        if count > 0:
+                            obj_list.append(
+                                f"<strong>{obj}</strong>: {count} ({pct:.1f}%)"
+                            )
+
+                    obj_text = "<br>• ".join(obj_list)
+                    color_insight = colores_rangos.get(rango, "#333")
+                    pct_del_total = (total_rango / total_objeciones * 100).round(1)
+
+                    st.markdown(
+                        f"""
+                        <div style="background: #f5f5f5; padding: 15px 20px; border-radius: 10px; border-left: 6px solid {color_insight}; margin-bottom: 15px;">
+                            <h4 style="color: {color_insight}; margin: 0 0 8px 0;">{rango}</h4>
+                            <div style="font-size: 14px; line-height: 1.8;">
+                                • <strong>Total de objeciones:</strong> {total_rango} ({pct_del_total:.1f}% del total)
+                                <br>• <strong>Distribución:</strong><br>• {obj_text}
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
     else:
-        st.info(f"ℹ️ No hay objeciones para este pilar")
+        st.info("No hay objeciones para este pilar")
 
     st.markdown("---")
 
-    # ===== GRÁFICO 2: NO OBJECIONES =====
-    st.markdown(f"### 🔄 No Objeciones")
+    # ===== GRÁFICO 3: NO OBJECIONES POR RANGO =====
+    st.markdown("### No Objeciones por Rango de Calificación")
 
     df_no_obj_pilar = df_pilar[df_pilar["Tipo"] == "No Objeción"]
 
     if not df_no_obj_pilar.empty:
-        no_obj_pilar_data = (
-            df_no_obj_pilar["Objecion_Detectada"].value_counts().reset_index()
+        cross_tab_no = pd.crosstab(
+            df_no_obj_pilar["Rango"], df_no_obj_pilar["Objecion_Detectada"]
         )
-        no_obj_pilar_data.columns = ["Categoría", "Cantidad"]
-        no_obj_pilar_data["Porcentaje"] = (
-            no_obj_pilar_data["Cantidad"] / no_obj_pilar_data["Cantidad"].sum() * 100
-        ).round(1)
-        no_obj_pilar_data = no_obj_pilar_data.sort_values("Cantidad", ascending=True)
+        cross_tab_no = cross_tab_no.reindex(orden_rangos)
 
-        fig_no_obj_pilar = go.Figure()
-        fig_no_obj_pilar.add_trace(
-            go.Bar(
-                y=no_obj_pilar_data["Categoría"],
-                x=no_obj_pilar_data["Cantidad"],
-                orientation="h",
-                text=no_obj_pilar_data["Porcentaje"].apply(lambda x: f"{x:.1f}%"),
-                textposition="outside",
-                marker=dict(
-                    color=no_obj_pilar_data["Cantidad"],
-                    colorscale="Greens",
-                    showscale=True,
-                    colorbar=dict(title="Cantidad"),
-                ),
+        colores_no_obj = {
+            "Buzon_De_Voz": "#1B5E20",
+            "Datos_Erroneos_No_Registro": "#2E7D32",
+            "Ninguna": "#388E3C",
+            "Sin_Tiempo_Atender": "#43A047",
+            "Tiempo_Horario_Incomodo": "#4CAF50",
+            "Tiempo_Trabajo_Ocupado": "#66BB6A",
+            "Tramite_Reintegro": "#81C784",
+        }
+
+        fig_no_obj_rangos = go.Figure()
+
+        for no_objecion in cross_tab_no.columns:
+            color = colores_no_obj.get(no_objecion, "#888888")
+            fig_no_obj_rangos.add_trace(
+                go.Bar(
+                    name=no_objecion,
+                    y=cross_tab_no.index,
+                    x=cross_tab_no[no_objecion],
+                    orientation="h",
+                    marker_color=color,
+                    text=cross_tab_no[no_objecion],
+                    textposition="inside",
+                    textfont=dict(size=13, color="white"),
+                )
             )
-        )
-        fig_no_obj_pilar.update_layout(
-            height=400,
-            xaxis_title="Cantidad",
+
+        fig_no_obj_rangos.update_layout(
+            barmode="group",
+            height=550,
+            xaxis_title="Cantidad de No Objeciones",
             yaxis_title="",
-            margin=dict(l=10, r=30, t=20, b=20),
+            legend_title="Categoria",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+                font=dict(size=11),
+            ),
+            margin=dict(l=50, r=50, t=50, b=50),
         )
-        st.plotly_chart(fig_no_obj_pilar, use_container_width=True)
+        st.plotly_chart(fig_no_obj_rangos, use_container_width=True)
 
     else:
-        st.info(f"ℹ️ No hay no objeciones para este pilar")
-
+        st.info("No hay no objeciones para este pilar")
 # ==================== FOOTER ====================
 st.markdown("---")
 st.markdown(
